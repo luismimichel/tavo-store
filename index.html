@@ -4,76 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tavo Store | Catálogo Premium</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        
-        :root {
-            --brand-blue: #3b82f6;
-            --brand-dark: #09090b;
-        }
-
+        :root { --brand-blue: #3b82f6; --brand-dark: #09090b; }
         body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: 'Inter', sans-serif; 
             background-color: var(--brand-dark);
             color: #ffffff;
             margin: 0;
-            overflow-x: hidden;
             background-image: radial-gradient(circle at 50% -20%, #1e3a8a33, transparent);
         }
-
         .glass-card {
             background: rgba(24, 24, 27, 0.6);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.3s ease;
         }
-
         .admin-input {
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 0.75rem;
             padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
             color: white;
             outline: none;
             width: 100%;
         }
-
-        .admin-input:focus {
-            border-color: var(--brand-blue);
-        }
-
-        .hero-title {
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        /* Estilos de etiquetas */
         .badge-stock { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
         .badge-order { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.2); }
     </style>
 </head>
 <body>
     <div id="root"></div>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        window.FirebaseServices = { 
-            db, auth, appId, doc, setDoc, collection, onSnapshot, 
-            updateDoc, addDoc, deleteDoc, signInAnonymously, signInWithCustomToken, onAuthStateChanged, query
-        };
-    </script>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -82,141 +43,111 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Iconos
-        const IconEdit = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
         const IconTrash = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
         const IconPlus = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>;
 
         const App = () => {
             const [view, setView] = useState('store');
             const [isLogged, setIsLogged] = useState(false);
-            const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
             
-            const [settings, setSettings] = useState({
-                logo: "TAVO STORE",
-                whatsapp: "584240000000",
-                banner: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=2000",
-                rate: 60.00
+            // Estado inicial de prueba
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('tavo_settings');
+                return saved ? JSON.parse(saved) : {
+                    logo: "TAVO STORE",
+                    whatsapp: "584240000000",
+                    banner: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=2000",
+                    rate: 60.00
+                };
             });
 
-            const [products, setProducts] = useState([]);
+            const [products, setProducts] = useState(() => {
+                const saved = localStorage.getItem('tavo_products');
+                return saved ? JSON.parse(saved) : [
+                    { id: 1, name: "iPhone 15 Pro", price: 999, img: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600", category: "Celulares", status: "stock", createdAt: Date.now() }
+                ];
+            });
 
-            const s = window.FirebaseServices;
-
-            // Auth y Firebase Init
+            // Guardar en LocalStorage cada vez que algo cambie
             useEffect(() => {
-                if (!s) return;
-                const startAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await s.signInWithCustomToken(s.auth, __initial_auth_token);
-                        } else {
-                            await s.signInAnonymously(s.auth);
-                        }
-                    } catch (e) { console.error("Auth Error", e); }
-                };
-                startAuth();
-                const unsubAuth = s.onAuthStateChanged(s.auth, setUser);
-                return () => unsubAuth();
-            }, []);
+                localStorage.setItem('tavo_settings', JSON.stringify(settings));
+                localStorage.setItem('tavo_products', JSON.stringify(products));
+                setLoading(false);
+            }, [settings, products]);
 
-            // Data Sync
-            useEffect(() => {
-                if (!user || !s) return;
-
-                const configRef = s.doc(s.db, 'artifacts', s.appId, 'public', 'data', 'config', 'main');
-                const unsubSetts = s.onSnapshot(configRef, (snap) => {
-                    if (snap.exists()) setSettings(snap.data());
-                    else s.setDoc(configRef, settings);
-                });
-
-                const prodRef = s.collection(s.db, 'artifacts', s.appId, 'public', 'data', 'products');
-                const unsubProd = s.onSnapshot(prodRef, (snap) => {
-                    const list = [];
-                    snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-                    setProducts(list);
-                    setLoading(false);
-                });
-
-                return () => { unsubSetts(); unsubProd(); };
-            }, [user]);
-
-            const updateField = async (id, field, val) => {
-                if (!user) return;
-                const ref = id === 'config' 
-                    ? s.doc(s.db, 'artifacts', s.appId, 'public', 'data', 'config', 'main')
-                    : s.doc(s.db, 'artifacts', s.appId, 'public', 'data', 'products', id);
-                await s.updateDoc(ref, { [field]: val });
+            const updateConfig = (field, val) => {
+                setSettings(prev => ({ ...prev, [field]: val }));
             };
 
-            const addProduct = async () => {
-                if (!user) return;
-                const ref = s.collection(s.db, 'artifacts', s.appId, 'public', 'data', 'products');
-                await s.addDoc(ref, { 
-                    name: "Nuevo Producto", 
-                    price: 0, 
-                    img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600", 
+            const updateProduct = (id, field, val) => {
+                setProducts(products.map(p => p.id === id ? { ...p, [field]: val } : p));
+            };
+
+            const addProduct = () => {
+                const newProd = {
+                    id: Date.now(),
+                    name: "Nuevo Producto",
+                    price: 0,
+                    img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
                     category: "General",
                     status: "stock",
-                    createdAt: Date.now() 
-                });
+                    createdAt: Date.now()
+                };
+                setProducts([newProd, ...products]);
             };
 
-            const deleteProduct = async (id) => {
-                if (confirm("¿Seguro que deseas eliminar este producto?")) {
-                    await s.deleteDoc(s.doc(s.db, 'artifacts', s.appId, 'public', 'data', 'products', id));
+            const deleteProduct = (id) => {
+                if (confirm("¿Eliminar producto?")) {
+                    setProducts(products.filter(p => p.id !== id));
                 }
             };
 
-            const formatBs = (price) => {
-                return (price * settings.rate).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            };
+            const formatBs = (price) => (price * settings.rate).toLocaleString('de-DE', { minimumFractionDigits: 2 });
 
-            if (loading) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-zinc-500">Cargando...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center font-black text-zinc-500">CARGANDO...</div>;
 
             const StoreView = () => (
                 <div className="pb-20">
+                    <nav className="fixed top-0 w-full z-50 p-6 flex justify-between items-center">
+                        <span className="font-black italic text-xl">{settings.logo}</span>
+                        <button onClick={() => setView('admin')} className="text-[10px] font-bold opacity-30 hover:opacity-100 uppercase tracking-widest">Admin</button>
+                    </nav>
+
                     <section className="relative h-[65vh] flex items-center justify-center text-center px-6 overflow-hidden">
                         <img src={settings.banner} className="absolute inset-0 w-full h-full object-cover opacity-30" />
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent"></div>
                         <div className="relative z-10">
-                            <h1 className="hero-title text-6xl md:text-9xl font-black tracking-tighter italic uppercase mb-2">{settings.logo}</h1>
-                            <p className="text-blue-400 font-bold tracking-[0.4em] uppercase text-xs md:text-sm">Premium Electronics & More</p>
+                            <h1 className="text-6xl md:text-9xl font-black tracking-tighter italic uppercase mb-2">{settings.logo}</h1>
+                            <p className="text-blue-400 font-bold tracking-[0.4em] uppercase text-xs md:text-sm">Premium Electronics</p>
                         </div>
                     </section>
 
                     <div className="max-w-7xl mx-auto px-6 -mt-16 relative z-20">
-                        <div className="flex bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-5 rounded-3xl items-center justify-center gap-6 mb-16 shadow-2xl">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                                <span className="text-xs font-black text-zinc-400 uppercase tracking-widest italic">Tasa Oficial: Bs. {settings.rate}</span>
-                            </div>
+                        <div className="flex bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-5 rounded-3xl items-center justify-center mb-16">
+                            <span className="text-xs font-black text-zinc-400 uppercase tracking-widest italic">Tasa: Bs. {settings.rate}</span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                            {products.sort((a,b) => b.createdAt - a.createdAt).map(p => (
-                                <div key={p.id} className="glass-card rounded-[2.5rem] overflow-hidden group hover:border-blue-500/50">
+                            {products.map(p => (
+                                <div key={p.id} className="glass-card rounded-[2.5rem] overflow-hidden group">
                                     <div className="aspect-[4/5] overflow-hidden bg-zinc-900 relative">
-                                        <img src={p.img} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={p.name} />
+                                        <img src={p.img} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                                         <div className={`absolute top-6 left-6 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${p.status === 'stock' ? 'badge-stock' : 'badge-order'}`}>
                                             {p.status === 'stock' ? 'En Stock' : 'Bajo Pedido'}
                                         </div>
                                     </div>
                                     <div className="p-10">
-                                        <span className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em]">{p.category}</span>
-                                        <h3 className="text-2xl font-bold mt-2 mb-8 tracking-tight leading-tight min-h-[3.5rem]">{p.name}</h3>
+                                        <h3 className="text-2xl font-bold mt-2 mb-8">{p.name}</h3>
                                         <div className="flex justify-between items-end">
                                             <div>
-                                                <p className="text-4xl font-black leading-none">${p.price}</p>
-                                                <p className="text-[10px] mt-2 text-zinc-500 font-bold uppercase tracking-widest">Bs. {formatBs(p.price)}</p>
+                                                <p className="text-4xl font-black">${p.price}</p>
+                                                <p className="text-[10px] mt-2 text-zinc-500 font-bold uppercase">Bs. {formatBs(p.price)}</p>
                                             </div>
                                             <button 
-                                                onClick={() => window.open(`https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(`Hola! Me interesa el ${p.name} ($${p.price}). ¿Está disponible?`)}`)}
-                                                className="bg-white text-black px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-tighter hover:bg-blue-600 hover:text-white transition-all transform hover:scale-105 shadow-xl"
-                                            >
-                                                Comprar
-                                            </button>
+                                                onClick={() => window.open(`https://wa.me/${settings.whatsapp}?text=Hola! Me interesa ${p.name}`)}
+                                                className="bg-white text-black px-8 py-4 rounded-2xl font-black text-[10px] uppercase"
+                                            >Comprar</button>
                                         </div>
                                     </div>
                                 </div>
@@ -232,100 +163,61 @@
                     return (
                         <div className="h-screen flex items-center justify-center p-6 bg-black">
                             <div className="glass-card p-10 rounded-[2.5rem] w-full max-w-sm">
-                                <h2 className="text-center font-black uppercase tracking-[0.3em] mb-8 text-sm">Acceso Privado</h2>
-                                <input 
-                                    type="password" 
-                                    placeholder="Clave de administrador" 
-                                    className="admin-input mb-4 text-center" 
-                                    onChange={e => setPass(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && pass === "tavo2026" && setIsLogged(true)}
-                                />
-                                <button 
-                                    onClick={() => pass === "tavo2026" ? setIsLogged(true) : alert("Incorrecto")} 
-                                    className="w-full bg-blue-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest"
-                                >
-                                    Desbloquear
-                                </button>
+                                <input type="password" placeholder="Clave: tavo2026" className="admin-input mb-4 text-center" onChange={e => setPass(e.target.value)} />
+                                <button onClick={() => pass === "tavo2026" ? setIsLogged(true) : alert("Error")} className="w-full bg-blue-600 py-4 rounded-2xl font-black text-[10px] uppercase">Entrar</button>
+                                <button onClick={() => setView('store')} className="w-full mt-4 text-[9px] text-zinc-500 uppercase font-bold">Volver</button>
                             </div>
                         </div>
                     );
                 }
 
                 return (
-                    <div className="max-w-6xl mx-auto px-6 py-32">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-16">
-                            <div>
-                                <h2 className="text-4xl font-black italic uppercase">Panel de <span className="text-blue-500">Control</span></h2>
-                                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Inventario en tiempo real</p>
-                            </div>
-                            <button onClick={addProduct} className="bg-blue-600 px-8 py-4 rounded-2xl flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/20">
-                                <IconPlus /> Añadir Producto
-                            </button>
-                        </div>
-
-                        {/* Configuración Rápida */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                            <div className="p-8 glass-card rounded-3xl">
-                                <h3 className="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em] mb-4 italic">Tasa BCV</h3>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-xl font-bold">Bs.</span>
-                                    <input 
-                                        type="number" 
-                                        className="admin-input text-xl font-black" 
-                                        value={settings.rate} 
-                                        onChange={e => updateField('config', 'rate', parseFloat(e.target.value) || 0)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="p-8 glass-card rounded-3xl">
-                                <h3 className="text-[9px] font-black uppercase text-blue-500 tracking-[0.2em] mb-4 italic">WhatsApp (Sin +)</h3>
-                                <input 
-                                    className="admin-input font-bold" 
-                                    value={settings.whatsapp} 
-                                    onChange={e => updateField('config', 'whatsapp', e.target.value)}
-                                />
+                    <div className="max-w-6xl mx-auto px-6 py-20">
+                        <div className="flex justify-between items-center mb-10">
+                            <h2 className="text-3xl font-black italic uppercase">Panel de Control</h2>
+                            <div className="flex gap-4">
+                                <button onClick={addProduct} className="bg-blue-600 px-6 py-3 rounded-xl font-black text-[10px] uppercase flex items-center gap-2"><IconPlus/> Nuevo</button>
+                                <button onClick={() => setView('store')} className="bg-zinc-800 px-6 py-3 rounded-xl font-black text-[10px] uppercase">Ver Tienda</button>
                             </div>
                         </div>
 
-                        {/* Lista de Edición */}
-                        <div className="grid grid-cols-1 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                            <div className="p-6 glass-card rounded-2xl">
+                                <label className="text-[9px] font-black text-blue-500 uppercase">Tasa BCV</label>
+                                <input type="number" className="admin-input mt-2" value={settings.rate} onChange={e => updateConfig('rate', parseFloat(e.target.value))} />
+                            </div>
+                            <div className="p-6 glass-card rounded-2xl">
+                                <label className="text-[9px] font-black text-blue-500 uppercase">WhatsApp</label>
+                                <input className="admin-input mt-2" value={settings.whatsapp} onChange={e => updateConfig('whatsapp', e.target.value)} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
                             {products.map(p => (
-                                <div key={p.id} className="glass-card p-8 rounded-3xl flex flex-col lg:flex-row gap-8 items-center group">
-                                    <div className="w-32 h-32 rounded-2xl overflow-hidden bg-black shrink-0 shadow-2xl relative">
-                                        <img src={p.img} className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                            <span className="text-[8px] font-black uppercase">Editar Imagen ↓</span>
-                                        </div>
+                                <div key={p.id} className="glass-card p-6 rounded-2xl flex flex-col md:flex-row gap-6 items-center">
+                                    <img src={p.img} className="w-20 h-20 rounded-xl object-cover" />
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                                        <input className="admin-input" value={p.name} onChange={e => updateProduct(p.id, 'name', e.target.value)} />
+                                        <input type="number" className="admin-input" value={p.price} onChange={e => updateProduct(p.id, 'price', parseFloat(e.target.value))} />
+                                        <select className="admin-input" value={p.status} onChange={e => updateProduct(p.id, 'status', e.target.value)}>
+                                            <option value="stock">En Stock</option>
+                                            <option value="order">Bajo Pedido</option>
+                                        </select>
                                     </div>
-                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 w-full">
-                                        <div>
-                                            <label className="text-[9px] uppercase font-black text-zinc-500 block mb-2 tracking-widest">Nombre</label>
-                                            <input className="admin-input" value={p.name} onChange={e => updateField(p.id, 'name', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] uppercase font-black text-zinc-500 block mb-2 tracking-widest">Precio USD</label>
-                                            <input type="number" className="admin-input" value={p.price} onChange={e => updateField(p.id, 'price', parseFloat(e.target.value) || 0)} />
-                                        </div>
-                                        <div className="md:col-span-1">
-                                            <label className="text-[9px] uppercase font-black text-zinc-500 block mb-2 tracking-widest">Estado</label>
-                                            <select 
-                                                className="admin-input" 
-                                                value={p.status} 
-                                                onChange={e => updateField(p.id, 'status', e.target.value)}
-                                            >
-                                                <option value="stock">En Stock</option>
-                                                <option value="order">Bajo Pedido</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] uppercase font-black text-zinc-500 block mb-2 tracking-widest">Categoría</label>
-                                            <input className="admin-input" value={p.category} onChange={e => updateField(p.id, 'category', e.target.value)} />
-                                        </div>
-                                        <div className="md:col-span-3">
-                                            <label className="text-[9px] uppercase font-black text-blue-400 block mb-2 tracking-widest italic">URL Imagen (Link directo)</label>
-                                            <input className="admin-input border-blue-500/20" value={p.img} onChange={e => updateField(p.id, 'img', e.target.value)} />
-                                        </div>
-                                        <div className="flex items-end justify-end">
-                                            <button onClick={() => deleteProduct(p.id)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all p-3 rounded-xl">
-                                                <IconTrash />
-                                            </butt
+                                    <button onClick={() => deleteProduct(p.id)} className="text-red-500 p-2"><IconTrash/></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            return view === 'store' ? <StoreView /> : <AdminView />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
